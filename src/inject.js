@@ -1,5 +1,5 @@
 WAPI.waitNewMessages(false, (data) => {
-    console.log(data)
+    console.log("data", data)
     data.forEach((message) => {
         //fetch API to send and receive response from server
         body = {};
@@ -29,23 +29,36 @@ WAPI.waitNewMessages(false, (data) => {
             }
         }).catch(function (error) {
             console.log(error);
-        });
+        })  
+
         
-        console.log("message", message);
-        console.log("intents.bot", intents.bot)
-        
+
         window.log(`Message from ${message.from.user} checking..`);
         if (intents.blocked.indexOf(message.from.user) >= 0) {
             window.log("number is blocked by BOT. no reply");
             return;
         }
+
+        if(message.type == "location"){
+            checkUser(message)
+        }
+
+        if(message.type == "image"){
+            WAPI.sendImage(message.content, message.from._serialized, "image.jpg");
+        }
+
         if (message.type == "chat") {
             //message.isGroupMsg to check if this is a group
             if (message.isGroupMsg == true && intents.appconfig.isGroupReply == false) {
                 window.log("Message received in group and group reply is off. so will not take any actions.");
                 return;
             }
-            var exactMatch = intents.bot.find(obj => obj.exact.find(ex => ex == message.body.toLowerCase()));
+
+            else{
+                checkUser(message)
+            }
+
+            /*var exactMatch = intents.bot.find(obj => obj.exact.find(ex => ex == message.body.toLowerCase()));
             var response = "";
             if (exactMatch != undefined) {
                 response = exactMatch.response;
@@ -60,10 +73,10 @@ WAPI.waitNewMessages(false, (data) => {
                 window.log(`Replying with ${PartialMatch.response}`);
             } else {
                 console.log("No partial match found");
-            }
+            }*/
             WAPI.sendSeen(message.from._serialized);
             WAPI.sendMessage2(message.from._serialized, response);
-            console.log();
+        
             if ((exactMatch || PartialMatch).file != undefined) {
                 window.getFile((exactMatch || PartialMatch).file).then((base64Data) => {
                     //console.log(file);
@@ -102,4 +115,40 @@ WAPI.addOptions = function () {
         });
     }
     mainDiv.children[mainDiv.children.length - 5].querySelector("div > div div[tabindex]").scrollTop += 100;
+}
+
+function checkUser(message){
+
+    let formData = new FormData()
+    formData.append("phone", message.from.user)
+    formData.append("body", message.body)
+    formData.append("lat", message.lat)
+    formData.append("lng", message.lng)
+    formData.append("type", message.type)
+
+    fetch("https://whatsappchatbot.sytes.net/api/customer/check", {
+        method: "POST",
+        body: formData,
+        headers: {
+            'Accept': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        }
+    }).then((resp) => resp.json()).then(function (response) {
+        //response received from server
+        
+        if(response.success == true){
+
+            WAPI.sendSeen(message.from._serialized);
+            WAPI.sendMessage2(message.from._serialized, response.msg);
+
+        }
+
+        /*console.log(response.success == true){
+            console.log(response)
+        }*/
+
+    }).catch(function (error) {
+        console.log(error);
+    });
+
 }
